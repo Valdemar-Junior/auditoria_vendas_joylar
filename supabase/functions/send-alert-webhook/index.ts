@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const WEBHOOK_URL = 'https://n8n.lojaodosmoveis.shop/webhook/alerta';
+const WEBHOOK_URL = 'https://n8n.joylar.shop/webhook/alerta';
 
 interface SaleItem {
   qtd: number;
@@ -77,8 +77,8 @@ serve(async (req) => {
         quem_autorizou: sale.quem_autorizou,
       },
       alertas: alertReasons,
-      itens_com_alerta: sale.items?.filter(item => 
-        item.alerta_auditoria && 
+      itens_com_alerta: sale.items?.filter(item =>
+        item.alerta_auditoria &&
         item.alerta_auditoria.toLowerCase() !== 'ok' &&
         item.alerta_auditoria.toLowerCase().includes('alerta')
       ) || [],
