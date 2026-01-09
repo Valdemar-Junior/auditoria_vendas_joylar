@@ -13,11 +13,11 @@ import { toast } from 'sonner';
 const Index = () => {
   const { data: sales = [], isLoading, error, refetch, isFetching, dataUpdatedAt } = useSales();
   const { processAlertsForSales } = useAlertWebhook();
-  
+
   const [filters, setFilters] = useState<FiltersType>(getDefaultFilters());
 
   // Track last updated time based on actual data fetch
-  const lastUpdated = dataUpdatedAt 
+  const lastUpdated = dataUpdatedAt
     ? format(new Date(dataUpdatedAt), "dd/MM/yyyy 'às' HH:mm:ss", { locale: ptBR })
     : format(new Date(), "dd/MM/yyyy 'às' HH:mm:ss", { locale: ptBR });
 
@@ -31,16 +31,16 @@ const Index = () => {
   };
 
   // Extract unique values for filter dropdowns
-  const filiais = useMemo(() => 
+  const filiais = useMemo(() =>
     [...new Set(sales.map(s => s.nome_filial).filter(Boolean))].sort() as string[],
     [sales]
   );
-  
-  const vendedores = useMemo(() => 
+
+  const vendedores = useMemo(() =>
     [...new Set(sales.map(s => s.nome_vendedor).filter(Boolean))].sort() as string[],
     [sales]
   );
-  
+
   const tabelas = useMemo(() => {
     const allTabelas = new Set<string>();
     sales.forEach(s => {
@@ -52,7 +52,7 @@ const Index = () => {
     return [...allTabelas].sort();
   }, [sales]);
 
-  const operacoes = useMemo(() => 
+  const operacoes = useMemo(() =>
     [...new Set(sales.map(s => s.operacao).filter(Boolean))].sort() as string[],
     [sales]
   );
@@ -61,13 +61,25 @@ const Index = () => {
   const filteredSales = useMemo(() => {
     return sales.filter(sale => {
       // Date range filter
+      // Formatar as datas para comparação ignorando o timezone (comparar apenas YYYY-MM-DD)
       if (filters.dateRange.from) {
-        const saleDate = new Date(sale.data_emissao);
-        if (saleDate < filters.dateRange.from) return false;
+        // Criar data local a partir da string YYYY-MM-DD (garantindo pegar apenas a parte da data)
+        const [year, month, day] = sale.data_emissao.slice(0, 10).split('-').map(Number);
+        const saleDate = new Date(year, month - 1, day);
+        // Resetar horas do filtro para garantir comparação correta
+        const filterFrom = new Date(filters.dateRange.from);
+        filterFrom.setHours(0, 0, 0, 0);
+
+        if (saleDate < filterFrom) return false;
       }
       if (filters.dateRange.to) {
-        const saleDate = new Date(sale.data_emissao);
-        if (saleDate > filters.dateRange.to) return false;
+        const [year, month, day] = sale.data_emissao.slice(0, 10).split('-').map(Number);
+        const saleDate = new Date(year, month - 1, day);
+        // Ajustar filtro para final do dia
+        const filterTo = new Date(filters.dateRange.to);
+        filterTo.setHours(23, 59, 59, 999);
+
+        if (saleDate > filterTo) return false;
       }
 
       // Text filters
@@ -82,9 +94,9 @@ const Index = () => {
       }
       if (filters.alertaStatus) {
         const items = (sale.items as unknown as Array<{ alerta_auditoria?: string }>) || [];
-        const hasItemAlert = items.some(item => 
-          item.alerta_auditoria && 
-          item.alerta_auditoria !== 'OK' && 
+        const hasItemAlert = items.some(item =>
+          item.alerta_auditoria &&
+          item.alerta_auditoria !== 'OK' &&
           item.alerta_auditoria.toLowerCase().includes('alerta')
         );
         if (filters.alertaStatus === 'ALERTA' && !hasItemAlert) return false;
@@ -109,7 +121,7 @@ const Index = () => {
     });
 
     const totalVendas = uniqueSales.size;
-    
+
     // Count unique sales with alerts - verificar nos itens (JSON), não na coluna da venda
     let vendasComAlerta = 0;
     let vendasComLiberacao = 0;
@@ -117,9 +129,9 @@ const Index = () => {
       // Verifica se algum item de qualquer venda tem alerta
       const hasItemAlert = salesList.some(s => {
         const items = (s.items as unknown as Array<{ alerta_auditoria?: string }>) || [];
-        return items.some(item => 
-          item.alerta_auditoria && 
-          item.alerta_auditoria !== 'OK' && 
+        return items.some(item =>
+          item.alerta_auditoria &&
+          item.alerta_auditoria !== 'OK' &&
           item.alerta_auditoria.toLowerCase().includes('alerta')
         );
       });
@@ -130,15 +142,15 @@ const Index = () => {
         vendasComLiberacao++;
       }
     });
-    
+
     // Sum values from all items
     const totalFaturamento = filteredSales.reduce((acc, s) => acc + (s.vlr_liquido ?? 0), 0);
     const totalDescontoReais = filteredSales.reduce((acc, s) => acc + (s.vlr_desconto ?? 0), 0);
     const totalLucro = filteredSales.reduce((acc, s) => acc + (s.lucro_reais ?? 0), 0);
-    
+
     const totalDesconto = filteredSales.reduce((acc, s) => acc + (s.perc_desconto ?? 0), 0);
     const percentualDescontoMedio = filteredSales.length > 0 ? (totalDesconto / filteredSales.length).toFixed(2) : '0.00';
-    
+
     const totalMargem = filteredSales.reduce((acc, s) => acc + (s.margem_perc ?? 0), 0);
     const margemMedia = filteredSales.length > 0 ? (totalMargem / filteredSales.length).toFixed(2) : '0.00';
 
@@ -164,7 +176,7 @@ const Index = () => {
       processAlertsForSales(sales);
     }
   }, [sales, processAlertsForSales]);
-  
+
 
   if (error) {
     return (
