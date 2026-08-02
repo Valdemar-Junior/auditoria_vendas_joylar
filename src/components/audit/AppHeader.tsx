@@ -1,5 +1,6 @@
-import { RefreshCw, LayoutList, PieChart } from 'lucide-react';
+import { RefreshCw, LayoutList, PieChart, LogOut } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
+import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 
 interface AppHeaderProps {
@@ -16,6 +17,8 @@ const abas = [
 ];
 
 export function AppHeader({ title, subtitle, lastUpdated, onRefresh, isFetching }: AppHeaderProps) {
+  const { user, sair } = useAuth();
+
   return (
     <header className="border-b border-border/50 glass-effect sticky top-0 z-10">
       <div className="container mx-auto px-4 py-6">
@@ -38,6 +41,14 @@ export function AppHeader({ title, subtitle, lastUpdated, onRefresh, isFetching 
             >
               <RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} />
               Atualizar
+            </button>
+            <button
+              onClick={sair}
+              title={user?.email ? `Sair (${user.email})` : 'Sair'}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted text-sm font-medium transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden md:inline">Sair</span>
             </button>
           </div>
         </div>
