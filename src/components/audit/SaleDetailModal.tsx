@@ -10,6 +10,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { StatusBadge } from './StatusBadge';
 import { Sale, SaleItem } from '@/types/sales';
+import { corMargem, faixaMargem, FAIXA_MARGEM_CONFIG } from '@/lib/margem';
 import { cn } from '@/lib/utils';
 
 interface SaleDetailModalProps {
@@ -129,6 +130,11 @@ export function SaleDetailModal({ sale, open, onOpenChange }: SaleDetailModalPro
                           {itemHasAlerta && <StatusBadge status="ALERTA" />}
                         </div>
                         <p className="text-sm text-muted-foreground font-mono">SKU: {item.sku || '-'}</p>
+                        {item.subgrupo && (
+                          <span className="inline-block mt-1 text-xs rounded-md bg-muted px-2 py-0.5 text-muted-foreground">
+                            {item.subgrupo}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -160,19 +166,14 @@ export function SaleDetailModal({ sale, open, onOpenChange }: SaleDetailModalPro
                     {/* Product Margin & Profit */}
                     <div className="grid grid-cols-2 gap-3">
                       <div className="flex items-center gap-2 bg-muted/30 rounded-lg p-3">
-                        <TrendingUp className={cn(
-                          "h-4 w-4",
-                          item.margem_perc >= 20 ? "text-status-ok" :
-                          item.margem_perc >= 15 ? "text-status-warning" : "text-status-alert"
-                        )} />
+                        <TrendingUp className={cn('h-4 w-4', corMargem(Number(item.margem_perc) || 0))} />
                         <div>
                           <p className="text-xs text-muted-foreground">Margem</p>
-                          <p className={cn(
-                            "font-mono font-bold",
-                            item.margem_perc >= 20 ? "text-status-ok" :
-                            item.margem_perc >= 15 ? "text-status-warning" : "text-status-alert"
-                          )}>
-                            {formatPercent(item.margem_perc)}%
+                          <p className={cn('font-mono font-bold', corMargem(Number(item.margem_perc) || 0))}>
+                            {formatPercent(item.margem_perc)}%{' '}
+                            <span className="text-xs font-sans font-normal">
+                              {FAIXA_MARGEM_CONFIG[faixaMargem(Number(item.margem_perc) || 0)].label}
+                            </span>
                           </p>
                         </div>
                       </div>
@@ -317,10 +318,12 @@ export function SaleDetailModal({ sale, open, onOpenChange }: SaleDetailModalPro
                 <p className="text-sm text-muted-foreground">Margem Geral</p>
                 <p className={cn(
                   'text-2xl font-bold font-mono',
-                  parseFloat(String(sale.margem_perc ?? 0)) >= 20 ? 'text-status-ok' : 
-                  parseFloat(String(sale.margem_perc ?? 0)) >= 15 ? 'text-status-warning' : 'text-status-alert'
+                  corMargem(parseFloat(String(sale.margem_perc ?? 0)) || 0)
                 )}>
                   {formatPercent(sale.margem_perc)}%
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {FAIXA_MARGEM_CONFIG[faixaMargem(parseFloat(String(sale.margem_perc ?? 0)) || 0)].label}
                 </p>
               </div>
               <div className="text-center">

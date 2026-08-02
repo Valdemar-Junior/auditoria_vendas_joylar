@@ -27,6 +27,7 @@ interface SalesFiltersProps {
   filiais: string[];
   vendedores: string[];
   tabelas: string[];
+  subgrupos: string[];
   operacoes: string[];
 }
 
@@ -39,6 +40,7 @@ const getDefaultFilters = (): FiltersType => {
     vendedor: '',
     lancamento: '',
     tabela: '',
+    subgrupo: '',
     operacao: '',
     alertaStatus: '',
     descontoMinimo: 0,
@@ -48,9 +50,10 @@ const getDefaultFilters = (): FiltersType => {
 export function SalesFilters({ 
   filters, 
   onFiltersChange, 
-  filiais, 
-  vendedores, 
+  filiais,
+  vendedores,
   tabelas,
+  subgrupos,
   operacoes
 }: SalesFiltersProps) {
   const [isExpanded, setIsExpanded] = useState(true);
@@ -77,8 +80,9 @@ export function SalesFilters({
     filters.periodType !== 'hoje' ||
     filters.filial || 
     filters.vendedor || 
-    filters.lancamento || 
-    filters.tabela || 
+    filters.lancamento ||
+    filters.tabela ||
+    filters.subgrupo ||
     filters.operacao ||
     filters.alertaStatus ||
     filters.descontoMinimo > 0;
@@ -284,6 +288,25 @@ export function SalesFilters({
                   <SelectItem value="all">Todas as tabelas</SelectItem>
                   {tabelas.map((tabela) => (
                     <SelectItem key={tabela} value={tabela}>{tabela}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Subgrupo */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Subgrupo</Label>
+              <Select
+                value={filters.subgrupo || 'all'}
+                onValueChange={(value) => onFiltersChange({ ...filters, subgrupo: value === 'all' ? '' : value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos os subgrupos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os subgrupos</SelectItem>
+                  {subgrupos.map((subgrupo) => (
+                    <SelectItem key={subgrupo} value={subgrupo}>{subgrupo}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { ChevronDown, ChevronUp, ChevronRight, Package } from 'lucide-react';
 import { formatInTimeZone } from 'date-fns-tz';
 import { ptBR } from 'date-fns/locale';
@@ -13,16 +13,19 @@ import {
 import { StatusBadge } from './StatusBadge';
 import { SaleDetailModal } from './SaleDetailModal';
 import { Sale, SaleItem } from '@/types/sales';
+import { corMargem } from '@/lib/margem';
 import { cn } from '@/lib/utils';
 
 interface SalesTableProps {
   sales: Sale[];
+  /** Subgrupo filtrado: destaca os itens que bateram e abre as vendas mistas automaticamente */
+  highlightSubgrupo?: string;
 }
 
 type SortField = 'numero_lancamento' | 'data_emissao' | 'perc_desconto' | 'margem_perc' | 'vlr_liquido';
 type SortDirection = 'asc' | 'desc';
 
-export function SalesTable({ sales }: SalesTableProps) {
+export function SalesTable({ sales, highlightSubgrupo }: SalesTableProps) {
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [sortField, setSortField] = useState<SortField>('data_emissao');
@@ -136,6 +139,24 @@ export function SalesTable({ sales }: SalesTableProps) {
     );
   };
 
+  // Subgrupos distintos da venda: uma venda pode misturar produtos de vários subgrupos
+  const getSubgrupos = (sale: Sale): string[] => {
+    return [...new Set(getItems(sale).map(item => item.subgrupo).filter(Boolean))];
+  };
+
+  // Com filtro de subgrupo ativo, abre as vendas mistas para mostrar qual item bateu
+  useEffect(() => {
+    if (!highlightSubgrupo) return;
+    setExpandedSales(new Set(
+      sales
+        .filter(sale => {
+          const items = getItems(sale);
+          return items.length > 1 && items.some(item => item.subgrupo === highlightSubgrupo);
+        })
+        .map(sale => sale.id)
+    ));
+  }, [highlightSubgrupo, sales]);
+
   // Drag to scroll handlers
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!tableContainerRef.current) return;
@@ -195,45 +216,46 @@ export function SalesTable({ sales }: SalesTableProps) {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <Table className="w-full min-w-[1000px]" style={{ tableLayout: 'fixed' }}>
+        <Table className="w-full min-w-[1150px]" style={{ tableLayout: 'fixed' }}>
           <TableHeader>
             <TableRow className="table-header-gradient hover:bg-transparent border-b-0">
               <TableHead className="text-primary-foreground font-semibold w-[3%]"></TableHead>
-              <TableHead 
-                className="text-primary-foreground font-semibold cursor-pointer hover:bg-primary/20 transition-colors whitespace-nowrap w-[8%]"
+              <TableHead
+                className="text-primary-foreground font-semibold cursor-pointer hover:bg-primary/20 transition-colors whitespace-nowrap w-[7%]"
                 onClick={() => handleSort('numero_lancamento')}
               >
                 Nº Lanç. <SortIcon field="numero_lancamento" />
               </TableHead>
-              <TableHead 
-                className="text-primary-foreground font-semibold cursor-pointer hover:bg-primary/20 transition-colors whitespace-nowrap w-[10%]"
+              <TableHead
+                className="text-primary-foreground font-semibold cursor-pointer hover:bg-primary/20 transition-colors whitespace-nowrap w-[9%]"
                 onClick={() => handleSort('data_emissao')}
               >
                 Data/Hora <SortIcon field="data_emissao" />
               </TableHead>
-              <TableHead className="text-primary-foreground font-semibold whitespace-nowrap w-[12%]">Filial</TableHead>
-              <TableHead className="text-primary-foreground font-semibold w-[20%]">Produto(s)</TableHead>
-              <TableHead className="text-primary-foreground font-semibold whitespace-nowrap w-[10%]">Tabela</TableHead>
-              <TableHead className="text-primary-foreground font-semibold whitespace-nowrap w-[10%]">Forma Pgto</TableHead>
-              <TableHead 
-                className="text-primary-foreground font-semibold text-right cursor-pointer hover:bg-primary/20 transition-colors whitespace-nowrap w-[8%]"
+              <TableHead className="text-primary-foreground font-semibold whitespace-nowrap w-[10%]">Filial</TableHead>
+              <TableHead className="text-primary-foreground font-semibold w-[18%]">Produto(s)</TableHead>
+              <TableHead className="text-primary-foreground font-semibold whitespace-nowrap w-[10%]">Subgrupo</TableHead>
+              <TableHead className="text-primary-foreground font-semibold whitespace-nowrap w-[9%]">Tabela</TableHead>
+              <TableHead className="text-primary-foreground font-semibold whitespace-nowrap w-[9%]">Forma Pgto</TableHead>
+              <TableHead
+                className="text-primary-foreground font-semibold text-right cursor-pointer hover:bg-primary/20 transition-colors whitespace-nowrap w-[7%]"
                 onClick={() => handleSort('vlr_liquido')}
               >
                 Total <SortIcon field="vlr_liquido" />
               </TableHead>
-              <TableHead 
+              <TableHead
                 className="text-primary-foreground font-semibold text-right cursor-pointer hover:bg-primary/20 transition-colors whitespace-nowrap w-[6%]"
                 onClick={() => handleSort('perc_desconto')}
               >
                 Desc. <SortIcon field="perc_desconto" />
               </TableHead>
-              <TableHead 
+              <TableHead
                 className="text-primary-foreground font-semibold text-right cursor-pointer hover:bg-primary/20 transition-colors whitespace-nowrap w-[6%]"
                 onClick={() => handleSort('margem_perc')}
               >
                 Margem <SortIcon field="margem_perc" />
               </TableHead>
-              <TableHead className="text-primary-foreground font-semibold text-center whitespace-nowrap w-[7%]">Status</TableHead>
+              <TableHead className="text-primary-foreground font-semibold text-center whitespace-nowrap w-[6%]">Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -242,10 +264,10 @@ export function SalesTable({ sales }: SalesTableProps) {
               const isExpanded = expandedSales.has(sale.id);
               const hasMultipleItems = items.length > 1;
               const highDiscount = Number(sale.perc_desconto) > 20;
-              const lowMargin = Number(sale.margem_perc) < 15;
               // Verifica alerta nos itens (JSON) em vez da coluna da venda
               const hasAlerta = hasItemAlert(sale);
               const primaryTabela = items[0]?.tabela_usada || '-';
+              const subgruposDaVenda = getSubgrupos(sale);
               
               return (
                 <>
@@ -307,6 +329,20 @@ export function SalesTable({ sales }: SalesTableProps) {
                       )}
                     </TableCell>
                     <TableCell>
+                      {subgruposDaVenda.length > 1 ? (
+                        <span
+                          className="text-sm font-medium text-accent"
+                          title={subgruposDaVenda.join(' | ')}
+                        >
+                          {subgruposDaVenda.length} subgrupos
+                        </span>
+                      ) : (
+                        <div className="truncate text-sm" title={subgruposDaVenda[0] || ''}>
+                          {subgruposDaVenda[0] || '-'}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
                       <div className="truncate text-sm" title={primaryTabela}>
                         {primaryTabela}
                       </div>
@@ -328,11 +364,7 @@ export function SalesTable({ sales }: SalesTableProps) {
                       </span>
                     </TableCell>
                     <TableCell className="text-right whitespace-nowrap">
-                      <span className={cn(
-                        'font-mono font-semibold',
-                        Number(sale.margem_perc) >= 20 ? 'text-status-ok' :
-                        lowMargin ? 'text-status-alert' : ''
-                      )}>
+                      <span className={cn('font-mono font-semibold', corMargem(Number(sale.margem_perc) || 0))}>
                         {formatPercent(sale.margem_perc)}%
                       </span>
                     </TableCell>
@@ -344,15 +376,18 @@ export function SalesTable({ sales }: SalesTableProps) {
                   {/* Expanded Items */}
                   {isExpanded && items.map((item, itemIndex) => {
                     const itemHighDiscount = item.perc_desconto > 20;
-                    const itemLowMargin = item.margem_perc < 15;
                     const itemHasAlerta = item.alerta_auditoria && item.alerta_auditoria !== 'OK' && item.alerta_auditoria.toLowerCase().includes('alerta');
-                    
+                    const isSubgrupoMatch = !!highlightSubgrupo && item.subgrupo === highlightSubgrupo;
+
                     return (
-                      <TableRow 
+                      <TableRow
                         key={`${sale.id}-item-${itemIndex}`}
                         className={cn(
                           'cursor-pointer transition-all duration-200 hover:bg-table-row-hover bg-secondary/30 border-border/20',
-                          itemHasAlerta && 'row-alert'
+                          itemHasAlerta && 'row-alert',
+                          // Itens que não bateram no filtro de subgrupo ficam apagados
+                          highlightSubgrupo && !isSubgrupoMatch && 'opacity-40',
+                          isSubgrupoMatch && !itemHasAlerta && 'bg-primary/5'
                         )}
                         onDoubleClick={() => handleRowDoubleClick(sale)}
                         title="Duplo clique para ver detalhes"
@@ -377,6 +412,14 @@ export function SalesTable({ sales }: SalesTableProps) {
                           </div>
                         </TableCell>
                         <TableCell className="text-sm">
+                          <div
+                            className={cn('truncate', isSubgrupoMatch && 'font-semibold text-primary')}
+                            title={item.subgrupo || ''}
+                          >
+                            {item.subgrupo || '-'}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm">
                           <div className="truncate" title={item.tabela_usada || ''}>
                             {item.tabela_usada || '-'}
                           </div>
@@ -396,11 +439,7 @@ export function SalesTable({ sales }: SalesTableProps) {
                           </span>
                         </TableCell>
                         <TableCell className="text-right whitespace-nowrap">
-                          <span className={cn(
-                            'font-mono text-sm',
-                            item.margem_perc >= 20 ? 'text-status-ok' :
-                            itemLowMargin ? 'text-status-alert' : ''
-                          )}>
+                          <span className={cn('font-mono text-sm', corMargem(Number(item.margem_perc) || 0))}>
                             {formatPercent(item.margem_perc)}%
                           </span>
                         </TableCell>

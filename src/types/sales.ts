@@ -6,6 +6,9 @@ export interface SaleItem {
   qtd: number;
   sku: string;
   produto: string;
+  departamento: string;
+  grupo: string;
+  subgrupo: string;
   vlr_bruto: number;
   vlr_liquido: number;
   vlr_desconto: number;
@@ -28,6 +31,7 @@ export interface SalesFilters {
   vendedor: string;
   lancamento: string;
   tabela: string;
+  subgrupo: string;
   operacao: string;
   alertaStatus: string;
   descontoMinimo: number;

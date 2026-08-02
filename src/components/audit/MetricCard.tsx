@@ -8,9 +8,11 @@ interface MetricCardProps {
   icon: LucideIcon;
   variant: 'primary' | 'alert' | 'success' | 'neutral' | 'purple' | 'orange';
   className?: string;
+  /** Colore o número principal — usado para a faixa de margem */
+  valueClassName?: string;
 }
 
-export function MetricCard({ title, value, subtitle, icon: Icon, variant, className }: MetricCardProps) {
+export function MetricCard({ title, value, subtitle, icon: Icon, variant, className, valueClassName }: MetricCardProps) {
   const iconColors = {
     primary: 'text-primary',
     alert: 'text-status-alert',
@@ -38,7 +40,7 @@ export function MetricCard({ title, value, subtitle, icon: Icon, variant, classN
       <div className="flex items-start justify-between">
         <div className="space-y-2">
           <p className="text-sm font-medium text-muted-foreground tracking-wide uppercase">{title}</p>
-          <p className="text-3xl font-bold tracking-tight">{value}</p>
+          <p className={cn('text-3xl font-bold tracking-tight', valueClassName)}>{value}</p>
           {subtitle && (
             <p className="text-xs text-muted-foreground">{subtitle}</p>
           )}

@@ -71,6 +71,9 @@ export default {
           warning: "hsl(var(--status-warning))",
           "warning-bg": "hsl(var(--status-warning-bg))",
           "warning-foreground": "hsl(var(--status-warning-foreground))",
+          critical: "hsl(var(--status-critical))",
+          "critical-bg": "hsl(var(--status-critical-bg))",
+          "critical-foreground": "hsl(var(--status-critical-foreground))",
         },
         table: {
           header: "hsl(var(--table-header))",

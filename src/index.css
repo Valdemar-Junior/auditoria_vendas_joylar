@@ -49,6 +49,12 @@
     --status-warning-bg: 45 93% 95%;
     --status-warning-foreground: 45 93% 25%;
 
+    /* Margem crítica — vermelho, separado do laranja de alerta de auditoria.
+       Amarelo e laranja não se distinguem o bastante (ΔE 14 em visão normal). */
+    --status-critical: 0 84% 50%;
+    --status-critical-bg: 0 84% 96%;
+    --status-critical-foreground: 0 84% 30%;
+
     /* Table specific */
     --table-header: 217 91% 50%;
     --table-row-hover: 210 40% 96%;
@@ -128,6 +134,10 @@
     --status-warning: 45 93% 50%;
     --status-warning-bg: 45 93% 10%;
     --status-warning-foreground: 45 93% 85%;
+
+    --status-critical: 0 84% 60%;
+    --status-critical-bg: 0 84% 10%;
+    --status-critical-foreground: 0 84% 85%;
 
     /* Table specific */
     --table-header: 217 91% 60%;

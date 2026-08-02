@@ -1,11 +1,14 @@
 import { useMemo, useState, useEffect } from 'react';
-import { ShoppingCart, AlertTriangle, Percent, TrendingUp, Loader2, DollarSign, Wallet, Unlock, RefreshCw } from 'lucide-react';
+import { ShoppingCart, AlertTriangle, Percent, TrendingUp, Loader2, DollarSign, Wallet, Unlock } from 'lucide-react';
+import { AppHeader } from '@/components/audit/AppHeader';
 import { MetricCard } from '@/components/audit/MetricCard';
 import { SalesFilters, getDefaultFilters } from '@/components/audit/SalesFilters';
 import { SalesTable } from '@/components/audit/SalesTable';
 import { useSales } from '@/hooks/useSales';
 import { useAlertWebhook } from '@/hooks/useAlertWebhook';
-import { SalesFilters as FiltersType } from '@/types/sales';
+import { SalesFilters as FiltersType, SaleItem } from '@/types/sales';
+import { isSaleInDateRange } from '@/lib/salesDate';
+import { corMargem, faixaMargem, FAIXA_MARGEM_CONFIG } from '@/lib/margem';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -52,6 +55,17 @@ const Index = () => {
     return [...allTabelas].sort();
   }, [sales]);
 
+  const subgrupos = useMemo(() => {
+    const allSubgrupos = new Set<string>();
+    sales.forEach(s => {
+      const items = (s.items as unknown as Array<{ subgrupo?: string }>) || [];
+      items.forEach(item => {
+        if (item.subgrupo) allSubgrupos.add(item.subgrupo);
+      });
+    });
+    return [...allSubgrupos].sort();
+  }, [sales]);
+
   const operacoes = useMemo(() =>
     [...new Set(sales.map(s => s.operacao).filter(Boolean))].sort() as string[],
     [sales]
@@ -60,27 +74,8 @@ const Index = () => {
   // Filter sales based on current filters
   const filteredSales = useMemo(() => {
     return sales.filter(sale => {
-      // Date range filter
-      // Formatar as datas para comparação ignorando o timezone (comparar apenas YYYY-MM-DD)
-      if (filters.dateRange.from) {
-        // Criar data local a partir da string YYYY-MM-DD (garantindo pegar apenas a parte da data)
-        const [year, month, day] = sale.data_emissao.slice(0, 10).split('-').map(Number);
-        const saleDate = new Date(year, month - 1, day);
-        // Resetar horas do filtro para garantir comparação correta
-        const filterFrom = new Date(filters.dateRange.from);
-        filterFrom.setHours(0, 0, 0, 0);
-
-        if (saleDate < filterFrom) return false;
-      }
-      if (filters.dateRange.to) {
-        const [year, month, day] = sale.data_emissao.slice(0, 10).split('-').map(Number);
-        const saleDate = new Date(year, month - 1, day);
-        // Ajustar filtro para final do dia
-        const filterTo = new Date(filters.dateRange.to);
-        filterTo.setHours(23, 59, 59, 999);
-
-        if (saleDate > filterTo) return false;
-      }
+      // Date range filter (compara só YYYY-MM-DD, ignorando timezone)
+      if (!isSaleInDateRange(sale, filters.dateRange.from, filters.dateRange.to)) return false;
 
       // Text filters
       if (filters.filial && sale.nome_filial !== filters.filial) return false;
@@ -91,6 +86,11 @@ const Index = () => {
         const items = (sale.items as unknown as Array<{ tabela_usada: string }>) || [];
         const hasTabela = items.some(item => item.tabela_usada === filters.tabela);
         if (!hasTabela) return false;
+      }
+      if (filters.subgrupo) {
+        const items = (sale.items as unknown as Array<{ subgrupo?: string }>) || [];
+        const hasSubgrupo = items.some(item => item.subgrupo === filters.subgrupo);
+        if (!hasSubgrupo) return false;
       }
       if (filters.alertaStatus) {
         const items = (sale.items as unknown as Array<{ alerta_auditoria?: string }>) || [];
@@ -143,16 +143,38 @@ const Index = () => {
       }
     });
 
-    // Sum values from all items
-    const totalFaturamento = filteredSales.reduce((acc, s) => acc + (s.vlr_liquido ?? 0), 0);
-    const totalDescontoReais = filteredSales.reduce((acc, s) => acc + (s.vlr_desconto ?? 0), 0);
-    const totalLucro = filteredSales.reduce((acc, s) => acc + (s.lucro_reais ?? 0), 0);
+    // Com filtro de subgrupo ativo, os valores somam APENAS os itens daquele subgrupo.
+    // Sem ele, uma venda mista (ex: colchão + utilidades) inflaria o total do subgrupo.
+    let totalFaturamento = 0;
+    let totalDescontoReais = 0;
+    let totalLucro = 0;
 
-    const totalDesconto = filteredSales.reduce((acc, s) => acc + (s.perc_desconto ?? 0), 0);
-    const percentualDescontoMedio = filteredSales.length > 0 ? (totalDesconto / filteredSales.length).toFixed(2) : '0.00';
+    if (filters.subgrupo) {
+      filteredSales.forEach(s => {
+        const items = (s.items as unknown as SaleItem[]) || [];
+        items.forEach(item => {
+          if (item.subgrupo !== filters.subgrupo) return;
+          totalFaturamento += Number(item.vlr_liquido) || 0;
+          totalDescontoReais += Number(item.vlr_desconto) || 0;
+          totalLucro += Number(item.lucro_reais) || 0;
+        });
+      });
+    } else {
+      filteredSales.forEach(s => {
+        totalFaturamento += s.vlr_liquido ?? 0;
+        totalDescontoReais += s.vlr_desconto ?? 0;
+        totalLucro += s.lucro_reais ?? 0;
+      });
+    }
 
-    const totalMargem = filteredSales.reduce((acc, s) => acc + (s.margem_perc ?? 0), 0);
-    const margemMedia = filteredSales.length > 0 ? (totalMargem / filteredSales.length).toFixed(2) : '0.00';
+    // Percentuais REAIS, ponderados pelo valor — não média aritmética dos percentuais.
+    // Média simples faria uma venda de R$ 9,80 pesar igual a uma de R$ 2.515,00,
+    // e o resultado não corresponderia a nenhum dinheiro que existe de fato.
+    const totalBruto = totalFaturamento + totalDescontoReais;
+    const percentualDescontoMedio =
+      totalBruto > 0 ? ((totalDescontoReais / totalBruto) * 100).toFixed(2) : '0.00';
+    const margemMedia =
+      totalFaturamento > 0 ? ((totalLucro / totalFaturamento) * 100).toFixed(2) : '0.00';
 
     return {
       totalVendas,
@@ -164,11 +186,14 @@ const Index = () => {
       percentualDescontoMedio,
       margemMedia,
     };
-  }, [filteredSales]);
+  }, [filteredSales, filters.subgrupo]);
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
+
+  // Deixa explícito nos cards que os valores estão restritos ao subgrupo filtrado
+  const escopoSubgrupo = filters.subgrupo ? `Somente itens de ${filters.subgrupo}` : null;
 
   // Process alerts when sales are loaded
   useEffect(() => {
@@ -192,35 +217,13 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border/50 glass-effect sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold tracking-tight gradient-text">
-                Auditoria de Vendas
-              </h1>
-              <p className="text-muted-foreground mt-1">
-                Análise de tabelas de preço, descontos e comissão
-              </p>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span className="hidden md:inline">Última atualização:</span>
-                <span className="font-medium text-foreground">{lastUpdated}</span>
-              </div>
-              <button
-                onClick={handleRefresh}
-                disabled={isFetching}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium transition-colors disabled:opacity-50"
-              >
-                <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
-                Atualizar
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <AppHeader
+        title="Auditoria de Vendas"
+        subtitle="Análise de tabelas de preço, descontos e comissão"
+        lastUpdated={lastUpdated}
+        onRefresh={handleRefresh}
+        isFetching={isFetching}
+      />
 
       <main className="px-4 py-6 space-y-6 max-w-[1920px] mx-auto">
         {isLoading ? (
@@ -235,7 +238,7 @@ const Index = () => {
               <MetricCard
                 title="Total de Vendas"
                 value={metrics.totalVendas}
-                subtitle="Vendas no período"
+                subtitle={filters.subgrupo ? `Vendas com ${filters.subgrupo}` : 'Vendas no período'}
                 icon={ShoppingCart}
                 variant="primary"
                 className="stagger-1"
@@ -243,7 +246,7 @@ const Index = () => {
               <MetricCard
                 title="Total Faturamento"
                 value={`R$ ${formatCurrency(metrics.totalFaturamento)}`}
-                subtitle="Valor líquido total"
+                subtitle={escopoSubgrupo ?? 'Valor líquido total'}
                 icon={DollarSign}
                 variant="success"
                 className="stagger-2"
@@ -251,7 +254,7 @@ const Index = () => {
               <MetricCard
                 title="Total Desconto"
                 value={`R$ ${formatCurrency(metrics.totalDescontoReais)}`}
-                subtitle={`Média de ${metrics.percentualDescontoMedio}%`}
+                subtitle={escopoSubgrupo ?? `${metrics.percentualDescontoMedio}% do valor bruto`}
                 icon={Percent}
                 variant="orange"
                 className="stagger-3"
@@ -259,7 +262,7 @@ const Index = () => {
               <MetricCard
                 title="Total Lucro"
                 value={`R$ ${formatCurrency(metrics.totalLucro)}`}
-                subtitle={`Margem média ${metrics.margemMedia}%`}
+                subtitle={escopoSubgrupo ?? `Margem de ${metrics.margemMedia}%`}
                 icon={Wallet}
                 variant="purple"
                 className="stagger-4"
@@ -285,17 +288,18 @@ const Index = () => {
                 className="stagger-6"
               />
               <MetricCard
-                title="Desconto Médio"
+                title="Desconto Geral"
                 value={`${metrics.percentualDescontoMedio}%`}
-                subtitle="Média de desconto aplicado"
+                subtitle="Desconto ÷ valor bruto"
                 icon={Percent}
                 variant="neutral"
                 className="stagger-5"
               />
               <MetricCard
-                title="Margem Média"
+                title="Margem Geral"
                 value={`${metrics.margemMedia}%`}
-                subtitle="Margem de lucro média"
+                valueClassName={corMargem(Number(metrics.margemMedia))}
+                subtitle={FAIXA_MARGEM_CONFIG[faixaMargem(Number(metrics.margemMedia))].label + ' • lucro ÷ faturamento'}
                 icon={TrendingUp}
                 variant="success"
                 className="stagger-6"
@@ -309,11 +313,12 @@ const Index = () => {
               filiais={filiais}
               vendedores={vendedores}
               tabelas={tabelas}
+              subgrupos={subgrupos}
               operacoes={operacoes}
             />
 
             {/* Sales Table */}
-            <SalesTable sales={filteredSales} />
+            <SalesTable sales={filteredSales} highlightSubgrupo={filters.subgrupo} />
 
             {/* Footer info */}
             <div className="flex items-center justify-between text-sm text-muted-foreground py-4">
