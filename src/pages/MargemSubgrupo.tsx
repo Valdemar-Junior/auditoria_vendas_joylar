@@ -17,7 +17,8 @@ import { AppHeader } from '@/components/audit/AppHeader';
 import { useSales } from '@/hooks/useSales';
 import { PeriodType } from '@/types/sales';
 import { isSaleInDateRange } from '@/lib/salesDate';
-import { analisarSubgrupos } from '@/lib/subgrupoMetrics';
+import { analisarSubgrupos, somarSubgrupos } from '@/lib/subgrupoMetrics';
+import { SubgrupoMultiSelect } from '@/components/audit/SubgrupoMultiSelect';
 import { faixaMargem, FAIXA_MARGEM_CONFIG, LEGENDA_MARGEM, LIMITES_MARGEM } from '@/lib/margem';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -38,6 +39,8 @@ const MargemSubgrupo = () => {
     }
   );
   const [filial, setFilial] = useState('');
+  /** Lista vazia = todos os subgrupos */
+  const [subgruposSel, setSubgruposSel] = useState<string[]>([]);
 
   const lastUpdated = dataUpdatedAt
     ? format(new Date(dataUpdatedAt), "dd/MM/yyyy 'às' HH:mm:ss", { locale: ptBR })
@@ -73,11 +76,29 @@ const MargemSubgrupo = () => {
 
   const analise = useMemo(() => analisarSubgrupos(vendasFiltradas), [vendasFiltradas]);
 
+  // Recorte selecionado. Como cada linha já traz os valores em reais, somar as
+  // linhas escolhidas dá a margem do recorte sem varrer as vendas de novo.
+  const linhas = useMemo(
+    () =>
+      subgruposSel.length === 0
+        ? analise.linhas
+        : analise.linhas.filter((l) => subgruposSel.includes(l.subgrupo)),
+    [analise.linhas, subgruposSel]
+  );
+
+  const totais = useMemo(() => somarSubgrupos(linhas), [linhas]);
+
+  const recorteAtivo = subgruposSel.length > 0 && subgruposSel.length < analise.linhas.length;
+
+  /** Fatia que o recorte representa no faturamento do período inteiro */
+  const fatiaDoPeriodo =
+    analise.totalFaturamento > 0 ? (totais.faturamento / analise.totalFaturamento) * 100 : 0;
+
   // Escala comum das barras: teto "redondo" acima da maior margem, para todas serem comparáveis
   const escalaMax = useMemo(() => {
-    const maior = Math.max(analise.margemGeral, ...analise.linhas.map((l) => l.margemPerc), 10);
+    const maior = Math.max(totais.margemPerc, ...linhas.map((l) => l.margemPerc), 10);
     return Math.ceil(maior / 10) * 10;
-  }, [analise]);
+  }, [linhas, totais.margemPerc]);
 
   const periodoLabel =
     periodType === 'hoje'
@@ -100,7 +121,7 @@ const MargemSubgrupo = () => {
     );
   }
 
-  const situacaoGeral = FAIXA_MARGEM_CONFIG[faixaMargem(analise.margemGeral)];
+  const situacaoGeral = FAIXA_MARGEM_CONFIG[faixaMargem(totais.margemPerc)];
 
   return (
     <div className="min-h-screen bg-background">
@@ -172,7 +193,7 @@ const MargemSubgrupo = () => {
                   </div>
                 </div>
 
-                <div className="space-y-2 sm:w-64">
+                <div className="space-y-2 sm:w-52">
                   <Label className="text-sm font-medium">Filial</Label>
                   <Select
                     value={filial || 'all'}
@@ -192,8 +213,20 @@ const MargemSubgrupo = () => {
                   </Select>
                 </div>
 
+                <div className="space-y-2 sm:w-64">
+                  <Label className="text-sm font-medium">Subgrupos</Label>
+                  <SubgrupoMultiSelect
+                    opcoes={analise.linhas.map((l) => ({
+                      subgrupo: l.subgrupo,
+                      faturamento: l.faturamento,
+                    }))}
+                    selecionados={subgruposSel}
+                    onChange={setSubgruposSel}
+                  />
+                </div>
+
                 <p className="text-sm text-muted-foreground sm:ml-auto pb-2">
-                  {periodoLabel} • {analise.totalItens} itens
+                  {periodoLabel} • {totais.itens} itens
                   {filial && ` • ${filial}`}
                 </p>
               </div>
@@ -203,37 +236,43 @@ const MargemSubgrupo = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               <div className="metric-card metric-card-primary lg:col-span-1 flex flex-col justify-center">
                 <p className="text-sm font-medium text-muted-foreground tracking-wide uppercase">
-                  Margem Geral
+                  {recorteAtivo ? 'Margem dos Selecionados' : 'Margem Geral'}
                 </p>
                 <p className={cn('text-5xl font-bold tracking-tight mt-2', situacaoGeral.text)}>
-                  {formatPercent(analise.margemGeral)}
+                  {formatPercent(totais.margemPerc)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Lucro de R$ {formatCurrency(analise.totalLucro)} sobre R${' '}
-                  {formatCurrency(analise.totalFaturamento)} faturados
+                  Lucro de R$ {formatCurrency(totais.lucro)} sobre R${' '}
+                  {formatCurrency(totais.faturamento)} faturados
                 </p>
+                {recorteAtivo && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {subgruposSel.length} de {analise.linhas.length} subgrupos •{' '}
+                    {fatiaDoPeriodo.toFixed(1)}% do faturamento do período
+                  </p>
+                )}
               </div>
 
               <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
                   {
                     title: 'Faturamento',
-                    value: `R$ ${formatCurrency(analise.totalFaturamento)}`,
-                    sub: `${analise.linhas.length} subgrupos`,
+                    value: `R$ ${formatCurrency(totais.faturamento)}`,
+                    sub: `${linhas.length} ${linhas.length === 1 ? 'subgrupo' : 'subgrupos'}`,
                     icon: DollarSign,
                     variant: 'success',
                   },
                   {
                     title: 'Lucro',
-                    value: `R$ ${formatCurrency(analise.totalLucro)}`,
+                    value: `R$ ${formatCurrency(totais.lucro)}`,
                     sub: 'Soma do lucro dos itens',
                     icon: Wallet,
                     variant: 'purple',
                   },
                   {
                     title: 'Desconto',
-                    value: formatPercent(analise.descontoGeral),
-                    sub: `R$ ${formatCurrency(analise.totalDesconto)} concedidos`,
+                    value: formatPercent(totais.descontoPerc),
+                    sub: `R$ ${formatCurrency(totais.desconto)} concedidos`,
                     icon: Percent,
                     variant: 'orange',
                   },
@@ -260,8 +299,9 @@ const MargemSubgrupo = () => {
                 <div>
                   <h2 className="font-semibold">Margem por subgrupo</h2>
                   <p className="text-sm text-muted-foreground mt-0.5">
-                    Ordenado por faturamento. A linha vertical marca a margem geral de{' '}
-                    {formatPercent(analise.margemGeral)}.
+                    Ordenado por faturamento. A linha vertical marca a margem
+                    {recorteAtivo ? ' dos selecionados' : ' geral'} de{' '}
+                    {formatPercent(totais.margemPerc)}.
                   </p>
                 </div>
                 {/* Legenda da régua — a cor nunca é o único sinal */}
@@ -298,7 +338,7 @@ const MargemSubgrupo = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {analise.linhas.map((linha) => {
+                    {linhas.map((linha) => {
                       const cfg = FAIXA_MARGEM_CONFIG[faixaMargem(linha.margemPerc)];
                       const Icone = cfg.icon;
                       const larguraBarra = Math.max(
@@ -345,7 +385,7 @@ const MargemSubgrupo = () => {
                                 <div
                                   className="absolute -inset-y-1 w-0.5 bg-foreground/40"
                                   style={{
-                                    left: `${Math.min(100, (analise.margemGeral / escalaMax) * 100)}%`,
+                                    left: `${Math.min(100, (totais.margemPerc / escalaMax) * 100)}%`,
                                   }}
                                 />
                               </div>
@@ -374,22 +414,24 @@ const MargemSubgrupo = () => {
                       );
                     })}
                   </tbody>
-                  {analise.linhas.length > 0 && (
+                  {linhas.length > 0 && (
                     <tfoot>
                       <tr className="border-t-2 border-border font-semibold bg-muted/30">
-                        <td className="px-6 py-4">Geral</td>
-                        <td className="px-3 py-4 text-right font-mono">{analise.totalItens}</td>
+                        <td className="px-6 py-4">
+                          {recorteAtivo ? 'Selecionados' : 'Geral'}
+                        </td>
+                        <td className="px-3 py-4 text-right font-mono">{totais.itens}</td>
                         <td className="px-3 py-4 text-right font-mono whitespace-nowrap">
-                          R$ {formatCurrency(analise.totalFaturamento)}
+                          R$ {formatCurrency(totais.faturamento)}
                         </td>
                         <td className="px-3 py-4 text-right font-mono whitespace-nowrap">
-                          {formatPercent(analise.descontoGeral)}
+                          {formatPercent(totais.descontoPerc)}
                         </td>
                         <td className="px-3 py-4 text-right font-mono whitespace-nowrap">
-                          R$ {formatCurrency(analise.totalLucro)}
+                          R$ {formatCurrency(totais.lucro)}
                         </td>
                         <td className={cn('px-3 py-4 text-right font-mono', situacaoGeral.text)}>
-                          {formatPercent(analise.margemGeral)}
+                          {formatPercent(totais.margemPerc)}
                         </td>
                         <td className="px-6 py-4" />
                       </tr>
@@ -398,11 +440,19 @@ const MargemSubgrupo = () => {
                 </table>
               </div>
 
-              {analise.linhas.length === 0 && (
+              {linhas.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                   <Package className="h-8 w-8 mb-3" />
-                  <p className="text-lg font-medium">Nenhuma venda no período</p>
-                  <p className="text-sm">Tente outro período ou filial</p>
+                  <p className="text-lg font-medium">
+                    {analise.linhas.length === 0
+                      ? 'Nenhuma venda no período'
+                      : 'Nenhum subgrupo selecionado'}
+                  </p>
+                  <p className="text-sm">
+                    {analise.linhas.length === 0
+                      ? 'Tente outro período ou filial'
+                      : 'Marque ao menos um subgrupo no filtro acima'}
+                  </p>
                 </div>
               )}
             </div>

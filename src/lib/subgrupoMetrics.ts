@@ -30,6 +30,18 @@ export interface AnaliseSubgrupos {
   descontoGeral: number;
 }
 
+/** Totais de um recorte de subgrupos — o que os cards mostram */
+export interface TotaisSubgrupos {
+  faturamento: number;
+  desconto: number;
+  lucro: number;
+  itens: number;
+  vendas: number;
+  /** Margem ponderada do recorte: lucro somado ÷ faturamento somado */
+  margemPerc: number;
+  descontoPerc: number;
+}
+
 const SEM_SUBGRUPO = 'SEM SUBGRUPO';
 
 /**
@@ -111,5 +123,30 @@ export function analisarSubgrupos(sales: Sale[]): AnaliseSubgrupos {
       totalFaturamento + totalDesconto > 0
         ? (totalDesconto / (totalFaturamento + totalDesconto)) * 100
         : 0,
+  };
+}
+
+/**
+ * Soma um recorte de subgrupos. Como cada linha já traz os valores em reais,
+ * dá para recalcular a margem do recorte sem varrer as vendas de novo — e ela
+ * sai ponderada de graça, porque somamos lucro e faturamento antes de dividir.
+ *
+ * `vendas` é uma soma simples: uma venda que tenha colchão e móvel conta nos
+ * dois subgrupos, então o total pode passar do número real de vendas.
+ */
+export function somarSubgrupos(linhas: SubgrupoResumo[]): TotaisSubgrupos {
+  const faturamento = linhas.reduce((acc, l) => acc + l.faturamento, 0);
+  const desconto = linhas.reduce((acc, l) => acc + l.descontoReais, 0);
+  const lucro = linhas.reduce((acc, l) => acc + l.lucro, 0);
+  const bruto = faturamento + desconto;
+
+  return {
+    faturamento,
+    desconto,
+    lucro,
+    itens: linhas.reduce((acc, l) => acc + l.itens, 0),
+    vendas: linhas.reduce((acc, l) => acc + l.vendas, 0),
+    margemPerc: faturamento > 0 ? (lucro / faturamento) * 100 : 0,
+    descontoPerc: bruto > 0 ? (desconto / bruto) * 100 : 0,
   };
 }
