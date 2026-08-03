@@ -7,12 +7,13 @@ import { cn } from '@/lib/utils';
 interface OpcaoSubgrupo {
   subgrupo: string;
   faturamento: number;
+  participacaoPerc: number;
 }
 
 interface SubgrupoMultiSelectProps {
   opcoes: OpcaoSubgrupo[];
-  /** Lista vazia = todos os subgrupos */
-  selecionados: string[];
+  /** null = todos no estado inicial; lista vazia = nenhum */
+  selecionados: string[] | null;
   onChange: (selecionados: string[]) => void;
 }
 
@@ -20,25 +21,23 @@ const formatCurrency = (v: number) =>
   v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function SubgrupoMultiSelect({ opcoes, selecionados, onChange }: SubgrupoMultiSelectProps) {
-  const todos = selecionados.length === 0;
+  const nomes = opcoes.map((o) => o.subgrupo);
+  const selecaoAtual = (selecionados ?? nomes).filter((subgrupo) => nomes.includes(subgrupo));
+  const todos = opcoes.length > 0 && selecaoAtual.length === opcoes.length;
 
   const alternar = (subgrupo: string) => {
-    // Lista vazia significa "todos", então o primeiro clique parte de todos
-    // marcados e desmarca só o que foi clicado.
-    const base = todos ? opcoes.map((o) => o.subgrupo) : selecionados;
-    const novo = base.includes(subgrupo)
-      ? base.filter((s) => s !== subgrupo)
-      : [...base, subgrupo];
-
-    // Voltou a ter tudo marcado: normaliza para "todos"
-    onChange(novo.length === opcoes.length ? [] : novo);
+    onChange(
+      selecaoAtual.includes(subgrupo)
+        ? selecaoAtual.filter((s) => s !== subgrupo)
+        : [...selecaoAtual, subgrupo]
+    );
   };
 
   const rotulo = () => {
     if (todos) return 'Todos os subgrupos';
-    if (selecionados.length === 0) return 'Nenhum subgrupo';
-    if (selecionados.length === 1) return selecionados[0];
-    return `${selecionados.length} subgrupos`;
+    if (selecaoAtual.length === 0) return 'Nenhum subgrupo';
+    if (selecaoAtual.length === 1) return selecaoAtual[0];
+    return `${selecaoAtual.length} subgrupos`;
   };
 
   return (
@@ -57,21 +56,32 @@ export function SubgrupoMultiSelect({ opcoes, selecionados, onChange }: Subgrupo
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-80 p-0" align="start">
-        <div className="flex items-center justify-between px-3 py-2 border-b">
+      <PopoverContent className="w-[26rem] max-w-[calc(100vw-2rem)] p-0" align="start">
+        <div className="flex items-center justify-between gap-3 px-3 py-2 border-b">
           <span className="text-sm font-medium">Analisar quais subgrupos</span>
-          <button
-            onClick={() => onChange([])}
-            disabled={todos}
-            className="text-xs text-primary hover:underline disabled:opacity-40 disabled:no-underline"
-          >
-            Todos
-          </button>
+          <div className="flex items-center gap-3 whitespace-nowrap">
+            <button
+              type="button"
+              onClick={() => onChange(nomes)}
+              disabled={todos || opcoes.length === 0}
+              className="text-xs text-primary hover:underline disabled:opacity-40 disabled:no-underline"
+            >
+              Marcar todos
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange([])}
+              disabled={selecaoAtual.length === 0}
+              className="text-xs text-primary hover:underline disabled:opacity-40 disabled:no-underline"
+            >
+              Desmarcar todos
+            </button>
+          </div>
         </div>
 
         <div className="max-h-72 overflow-y-auto scrollbar-thin py-1">
           {opcoes.map((opcao) => {
-            const marcado = todos || selecionados.includes(opcao.subgrupo);
+            const marcado = selecaoAtual.includes(opcao.subgrupo);
             return (
               <label
                 key={opcao.subgrupo}
@@ -85,7 +95,7 @@ export function SubgrupoMultiSelect({ opcoes, selecionados, onChange }: Subgrupo
                 <span className="flex-1 min-w-0">
                   <span className="block text-sm truncate">{opcao.subgrupo}</span>
                   <span className="block text-xs text-muted-foreground font-mono">
-                    R$ {formatCurrency(opcao.faturamento)}
+                    R$ {formatCurrency(opcao.faturamento)} • {opcao.participacaoPerc.toFixed(1)}% do total
                   </span>
                 </span>
                 {marcado && <Check className={cn('h-3.5 w-3.5 text-primary shrink-0')} />}
@@ -94,11 +104,9 @@ export function SubgrupoMultiSelect({ opcoes, selecionados, onChange }: Subgrupo
           })}
         </div>
 
-        {!todos && (
-          <div className="border-t px-3 py-2 text-xs text-muted-foreground">
-            {selecionados.length} de {opcoes.length} selecionados
-          </div>
-        )}
+        <div className="border-t px-3 py-2 text-xs text-muted-foreground">
+          {selecaoAtual.length} de {opcoes.length} selecionados
+        </div>
       </PopoverContent>
     </Popover>
   );

@@ -39,8 +39,8 @@ const MargemSubgrupo = () => {
     }
   );
   const [filial, setFilial] = useState('');
-  /** Lista vazia = todos os subgrupos */
-  const [subgruposSel, setSubgruposSel] = useState<string[]>([]);
+  /** null = todos no estado inicial; lista vazia = nenhum */
+  const [subgruposSel, setSubgruposSel] = useState<string[] | null>(null);
 
   const lastUpdated = dataUpdatedAt
     ? format(new Date(dataUpdatedAt), "dd/MM/yyyy 'às' HH:mm:ss", { locale: ptBR })
@@ -80,7 +80,7 @@ const MargemSubgrupo = () => {
   // linhas escolhidas dá a margem do recorte sem varrer as vendas de novo.
   const linhas = useMemo(
     () =>
-      subgruposSel.length === 0
+      subgruposSel === null
         ? analise.linhas
         : analise.linhas.filter((l) => subgruposSel.includes(l.subgrupo)),
     [analise.linhas, subgruposSel]
@@ -88,7 +88,8 @@ const MargemSubgrupo = () => {
 
   const totais = useMemo(() => somarSubgrupos(linhas), [linhas]);
 
-  const recorteAtivo = subgruposSel.length > 0 && subgruposSel.length < analise.linhas.length;
+  const quantidadeSelecionada = linhas.length;
+  const recorteAtivo = quantidadeSelecionada < analise.linhas.length;
 
   /** Fatia que o recorte representa no faturamento do período inteiro */
   const fatiaDoPeriodo =
@@ -219,6 +220,7 @@ const MargemSubgrupo = () => {
                     opcoes={analise.linhas.map((l) => ({
                       subgrupo: l.subgrupo,
                       faturamento: l.faturamento,
+                      participacaoPerc: l.participacaoPerc,
                     }))}
                     selecionados={subgruposSel}
                     onChange={setSubgruposSel}
@@ -247,7 +249,7 @@ const MargemSubgrupo = () => {
                 </p>
                 {recorteAtivo && (
                   <p className="text-xs text-muted-foreground mt-1">
-                    {subgruposSel.length} de {analise.linhas.length} subgrupos •{' '}
+                    {quantidadeSelecionada} de {analise.linhas.length} subgrupos •{' '}
                     {fatiaDoPeriodo.toFixed(1)}% do faturamento do período
                   </p>
                 )}
