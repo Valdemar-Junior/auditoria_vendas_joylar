@@ -4,13 +4,6 @@ import { format, startOfDay, startOfMonth, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { AppHeader } from '@/components/audit/AppHeader';
@@ -19,6 +12,7 @@ import { PeriodType } from '@/types/sales';
 import { isSaleInDateRange } from '@/lib/salesDate';
 import { analisarSubgrupos, somarSubgrupos } from '@/lib/subgrupoMetrics';
 import { SubgrupoMultiSelect } from '@/components/audit/SubgrupoMultiSelect';
+import { FilialMultiSelect } from '@/components/audit/FilialMultiSelect';
 import { faixaMargem, FAIXA_MARGEM_CONFIG, LEGENDA_MARGEM, LIMITES_MARGEM } from '@/lib/margem';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -27,6 +21,9 @@ const formatCurrency = (value: number) =>
   value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const formatPercent = (value: number) => `${value.toFixed(2)}%`;
+
+/** A filial atacadista fica fora da análise, a menos que seja marcada manualmente */
+const isFilialAtacadista = (filial: string) => filial.toUpperCase().includes('ATACADISTA');
 
 const MargemSubgrupo = () => {
   const { data: sales = [], isLoading, error, refetch, isFetching, dataUpdatedAt } = useSales();
@@ -38,7 +35,8 @@ const MargemSubgrupo = () => {
       return { from: startOfMonth(today), to: endOfDay(today) };
     }
   );
-  const [filial, setFilial] = useState('');
+  /** null = padrão (todas menos a atacadista); lista vazia = nenhuma */
+  const [filiaisSel, setFiliaisSel] = useState<string[] | null>(null);
   /** null = todos no estado inicial; lista vazia = nenhum */
   const [subgruposSel, setSubgruposSel] = useState<string[] | null>(null);
 
@@ -64,15 +62,27 @@ const MargemSubgrupo = () => {
     [sales]
   );
 
+  const filiaisAtivas = useMemo(
+    () => filiaisSel ?? filiais.filter((f) => !isFilialAtacadista(f)),
+    [filiaisSel, filiais]
+  );
+
   const vendasFiltradas = useMemo(
     () =>
       sales.filter((sale) => {
         if (!isSaleInDateRange(sale, dateRange.from, dateRange.to)) return false;
-        if (filial && sale.nome_filial !== filial) return false;
+        if (!sale.nome_filial || !filiaisAtivas.includes(sale.nome_filial)) return false;
         return true;
       }),
-    [sales, dateRange, filial]
+    [sales, dateRange, filiaisAtivas]
   );
+
+  const filialLabel =
+    filiaisAtivas.length === filiais.length
+      ? null
+      : filiaisAtivas.length === 1
+        ? filiaisAtivas[0]
+        : `${filiaisAtivas.length} de ${filiais.length} filiais`;
 
   const analise = useMemo(() => analisarSubgrupos(vendasFiltradas), [vendasFiltradas]);
 
@@ -196,22 +206,11 @@ const MargemSubgrupo = () => {
 
                 <div className="space-y-2 sm:w-52">
                   <Label className="text-sm font-medium">Filial</Label>
-                  <Select
-                    value={filial || 'all'}
-                    onValueChange={(value) => setFilial(value === 'all' ? '' : value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Todas as filiais" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas as filiais</SelectItem>
-                      {filiais.map((f) => (
-                        <SelectItem key={f} value={f}>
-                          {f}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FilialMultiSelect
+                    opcoes={filiais}
+                    selecionadas={filiaisAtivas}
+                    onChange={setFiliaisSel}
+                  />
                 </div>
 
                 <div className="space-y-2 sm:w-64">
@@ -229,7 +228,7 @@ const MargemSubgrupo = () => {
 
                 <p className="text-sm text-muted-foreground sm:ml-auto pb-2">
                   {periodoLabel} • {totais.itens} itens
-                  {filial && ` • ${filial}`}
+                  {filialLabel && ` • ${filialLabel}`}
                 </p>
               </div>
             </div>
