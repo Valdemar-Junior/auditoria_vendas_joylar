@@ -13,6 +13,7 @@ import { isSaleInDateRange } from '@/lib/salesDate';
 import { analisarSubgrupos, somarSubgrupos } from '@/lib/subgrupoMetrics';
 import { SubgrupoMultiSelect } from '@/components/audit/SubgrupoMultiSelect';
 import { FilialMultiSelect } from '@/components/audit/FilialMultiSelect';
+import { resolverFiliais } from '@/lib/filiais';
 import { faixaMargem, FAIXA_MARGEM_CONFIG, LEGENDA_MARGEM, LIMITES_MARGEM } from '@/lib/margem';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -21,9 +22,6 @@ const formatCurrency = (value: number) =>
   value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const formatPercent = (value: number) => `${value.toFixed(2)}%`;
-
-/** A filial atacadista fica fora da análise, a menos que seja marcada manualmente */
-const isFilialAtacadista = (filial: string) => filial.toUpperCase().includes('ATACADISTA');
 
 const MargemSubgrupo = () => {
   const { data: sales = [], isLoading, error, refetch, isFetching, dataUpdatedAt } = useSales();
@@ -63,7 +61,7 @@ const MargemSubgrupo = () => {
   );
 
   const filiaisAtivas = useMemo(
-    () => filiaisSel ?? filiais.filter((f) => !isFilialAtacadista(f)),
+    () => resolverFiliais(filiaisSel, filiais),
     [filiaisSel, filiais]
   );
 

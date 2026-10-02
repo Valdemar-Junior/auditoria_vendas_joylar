@@ -19,6 +19,8 @@ import {
 } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import { resolverFiliais } from '@/lib/filiais';
+import { FilialMultiSelect } from '@/components/audit/FilialMultiSelect';
 import { SalesFilters as FiltersType, PeriodType } from '@/types/sales';
 
 interface SalesFiltersProps {
@@ -36,7 +38,7 @@ const getDefaultFilters = (): FiltersType => {
   return {
     periodType: 'hoje',
     dateRange: { from: startOfDay(today), to: endOfDay(today) },
-    filial: '',
+    filiais: null,
     vendedor: '',
     lancamento: '',
     tabela: '',
@@ -78,7 +80,7 @@ export function SalesFilters({
 
   const hasActiveFilters = 
     filters.periodType !== 'hoje' ||
-    filters.filial || 
+    filters.filiais !== null ||
     filters.vendedor || 
     filters.lancamento ||
     filters.tabela ||
@@ -225,20 +227,11 @@ export function SalesFilters({
             {/* Filial */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Filial</Label>
-              <Select
-                value={filters.filial || 'all'}
-                onValueChange={(value) => onFiltersChange({ ...filters, filial: value === 'all' ? '' : value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Todas as filiais" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as filiais</SelectItem>
-                  {filiais.map((filial) => (
-                    <SelectItem key={filial} value={filial}>{filial}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FilialMultiSelect
+                opcoes={filiais}
+                selecionadas={resolverFiliais(filters.filiais, filiais)}
+                onChange={(selecionadas) => onFiltersChange({ ...filters, filiais: selecionadas })}
+              />
             </div>
 
             {/* Vendedor */}

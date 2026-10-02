@@ -8,6 +8,7 @@ import { useSales } from '@/hooks/useSales';
 import { useAlertWebhook } from '@/hooks/useAlertWebhook';
 import { SalesFilters as FiltersType, SaleItem } from '@/types/sales';
 import { isSaleInDateRange } from '@/lib/salesDate';
+import { resolverFiliais } from '@/lib/filiais';
 import { corMargem, faixaMargem, FAIXA_MARGEM_CONFIG } from '@/lib/margem';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -71,6 +72,11 @@ const Index = () => {
     [sales]
   );
 
+  const filiaisAtivas = useMemo(
+    () => resolverFiliais(filters.filiais, filiais),
+    [filters.filiais, filiais]
+  );
+
   // Filter sales based on current filters
   const filteredSales = useMemo(() => {
     return sales.filter(sale => {
@@ -78,7 +84,7 @@ const Index = () => {
       if (!isSaleInDateRange(sale, filters.dateRange.from, filters.dateRange.to)) return false;
 
       // Text filters
-      if (filters.filial && sale.nome_filial !== filters.filial) return false;
+      if (!sale.nome_filial || !filiaisAtivas.includes(sale.nome_filial)) return false;
       if (filters.vendedor && sale.nome_vendedor !== filters.vendedor) return false;
       if (filters.lancamento && !String(sale.numero_lancamento).includes(filters.lancamento)) return false;
       if (filters.operacao && sale.operacao !== filters.operacao) return false;
@@ -106,7 +112,7 @@ const Index = () => {
 
       return true;
     });
-  }, [sales, filters]);
+  }, [sales, filters, filiaisAtivas]);
 
   // Calculate metrics - group by numero_lancamento for unique sales count
   const metrics = useMemo(() => {

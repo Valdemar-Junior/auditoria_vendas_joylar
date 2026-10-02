@@ -27,7 +27,8 @@ export type PeriodType = 'hoje' | 'mes' | 'intervalo';
 export interface SalesFilters {
   periodType: PeriodType;
   dateRange: { from: Date | undefined; to: Date | undefined };
-  filial: string;
+  /** null = padrão (todas menos a atacadista); lista vazia = nenhuma */
+  filiais: string[] | null;
   vendedor: string;
   lancamento: string;
   tabela: string;
