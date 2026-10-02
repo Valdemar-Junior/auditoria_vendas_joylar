@@ -32,7 +32,8 @@ export interface SalesFilters {
   vendedor: string;
   lancamento: string;
   tabela: string;
-  subgrupo: string;
+  /** null = todos; lista vazia = nenhum */
+  subgrupos: string[] | null;
   operacao: string;
   alertaStatus: string;
   descontoMinimo: number;

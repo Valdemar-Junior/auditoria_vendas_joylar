@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CalendarIcon, Filter, Search, X } from 'lucide-react';
+import { Building2, CalendarIcon, Filter, Layers, Search, X } from 'lucide-react';
 import { format, startOfDay, startOfMonth, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,8 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { resolverFiliais } from '@/lib/filiais';
-import { FilialMultiSelect } from '@/components/audit/FilialMultiSelect';
+import { FiltroMultiSelect } from '@/components/audit/FiltroMultiSelect';
+import { TEXTOS_FILIAIS, TEXTOS_SUBGRUPOS } from '@/components/audit/textosMultiSelect';
 import { SalesFilters as FiltersType, PeriodType } from '@/types/sales';
 
 interface SalesFiltersProps {
@@ -42,7 +43,7 @@ const getDefaultFilters = (): FiltersType => {
     vendedor: '',
     lancamento: '',
     tabela: '',
-    subgrupo: '',
+    subgrupos: null,
     operacao: '',
     alertaStatus: '',
     descontoMinimo: 0,
@@ -84,7 +85,7 @@ export function SalesFilters({
     filters.vendedor || 
     filters.lancamento ||
     filters.tabela ||
-    filters.subgrupo ||
+    filters.subgrupos !== null ||
     filters.operacao ||
     filters.alertaStatus ||
     filters.descontoMinimo > 0;
@@ -227,10 +228,12 @@ export function SalesFilters({
             {/* Filial */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Filial</Label>
-              <FilialMultiSelect
+              <FiltroMultiSelect
                 opcoes={filiais}
                 selecionadas={resolverFiliais(filters.filiais, filiais)}
                 onChange={(selecionadas) => onFiltersChange({ ...filters, filiais: selecionadas })}
+                icone={Building2}
+                textos={TEXTOS_FILIAIS}
               />
             </div>
 
@@ -289,20 +292,13 @@ export function SalesFilters({
             {/* Subgrupo */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Subgrupo</Label>
-              <Select
-                value={filters.subgrupo || 'all'}
-                onValueChange={(value) => onFiltersChange({ ...filters, subgrupo: value === 'all' ? '' : value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Todos os subgrupos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os subgrupos</SelectItem>
-                  {subgrupos.map((subgrupo) => (
-                    <SelectItem key={subgrupo} value={subgrupo}>{subgrupo}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FiltroMultiSelect
+                opcoes={subgrupos}
+                selecionadas={filters.subgrupos ?? subgrupos}
+                onChange={(selecionadas) => onFiltersChange({ ...filters, subgrupos: selecionadas })}
+                icone={Layers}
+                textos={TEXTOS_SUBGRUPOS}
+              />
             </div>
 
             {/* Status Alerta */}

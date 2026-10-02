@@ -77,6 +77,13 @@ const Index = () => {
     [filters.filiais, filiais]
   );
 
+  // null = sem recorte de subgrupo (todos marcados); lista = só esses subgrupos
+  const subgruposFiltro = useMemo(() => {
+    if (filters.subgrupos === null) return null;
+    const marcados = filters.subgrupos.filter(s => subgrupos.includes(s));
+    return marcados.length === subgrupos.length ? null : marcados;
+  }, [filters.subgrupos, subgrupos]);
+
   // Filter sales based on current filters
   const filteredSales = useMemo(() => {
     return sales.filter(sale => {
@@ -93,9 +100,9 @@ const Index = () => {
         const hasTabela = items.some(item => item.tabela_usada === filters.tabela);
         if (!hasTabela) return false;
       }
-      if (filters.subgrupo) {
+      if (subgruposFiltro) {
         const items = (sale.items as unknown as Array<{ subgrupo?: string }>) || [];
-        const hasSubgrupo = items.some(item => item.subgrupo === filters.subgrupo);
+        const hasSubgrupo = items.some(item => !!item.subgrupo && subgruposFiltro.includes(item.subgrupo));
         if (!hasSubgrupo) return false;
       }
       if (filters.alertaStatus) {
@@ -112,7 +119,7 @@ const Index = () => {
 
       return true;
     });
-  }, [sales, filters, filiaisAtivas]);
+  }, [sales, filters, filiaisAtivas, subgruposFiltro]);
 
   // Calculate metrics - group by numero_lancamento for unique sales count
   const metrics = useMemo(() => {
@@ -149,17 +156,17 @@ const Index = () => {
       }
     });
 
-    // Com filtro de subgrupo ativo, os valores somam APENAS os itens daquele subgrupo.
+    // Com filtro de subgrupo ativo, os valores somam APENAS os itens dos subgrupos marcados.
     // Sem ele, uma venda mista (ex: colchão + utilidades) inflaria o total do subgrupo.
     let totalFaturamento = 0;
     let totalDescontoReais = 0;
     let totalLucro = 0;
 
-    if (filters.subgrupo) {
+    if (subgruposFiltro) {
       filteredSales.forEach(s => {
         const items = (s.items as unknown as SaleItem[]) || [];
         items.forEach(item => {
-          if (item.subgrupo !== filters.subgrupo) return;
+          if (!item.subgrupo || !subgruposFiltro.includes(item.subgrupo)) return;
           totalFaturamento += Number(item.vlr_liquido) || 0;
           totalDescontoReais += Number(item.vlr_desconto) || 0;
           totalLucro += Number(item.lucro_reais) || 0;
@@ -192,14 +199,19 @@ const Index = () => {
       percentualDescontoMedio,
       margemMedia,
     };
-  }, [filteredSales, filters.subgrupo]);
+  }, [filteredSales, subgruposFiltro]);
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
-  // Deixa explícito nos cards que os valores estão restritos ao subgrupo filtrado
-  const escopoSubgrupo = filters.subgrupo ? `Somente itens de ${filters.subgrupo}` : null;
+  // Deixa explícito nos cards que os valores estão restritos aos subgrupos filtrados
+  const nomeRecorteSubgrupo = !subgruposFiltro
+    ? null
+    : subgruposFiltro.length === 1
+      ? subgruposFiltro[0]
+      : `${subgruposFiltro.length} subgrupos`;
+  const escopoSubgrupo = nomeRecorteSubgrupo ? `Somente itens de ${nomeRecorteSubgrupo}` : null;
 
   // Process alerts when sales are loaded
   useEffect(() => {
@@ -244,7 +256,7 @@ const Index = () => {
               <MetricCard
                 title="Total de Vendas"
                 value={metrics.totalVendas}
-                subtitle={filters.subgrupo ? `Vendas com ${filters.subgrupo}` : 'Vendas no período'}
+                subtitle={nomeRecorteSubgrupo ? `Vendas com ${nomeRecorteSubgrupo}` : 'Vendas no período'}
                 icon={ShoppingCart}
                 variant="primary"
                 className="stagger-1"
@@ -324,7 +336,7 @@ const Index = () => {
             />
 
             {/* Sales Table */}
-            <SalesTable sales={filteredSales} highlightSubgrupo={filters.subgrupo} />
+            <SalesTable sales={filteredSales} highlightSubgrupos={subgruposFiltro} />
 
             {/* Footer info */}
             <div className="flex items-center justify-between text-sm text-muted-foreground py-4">

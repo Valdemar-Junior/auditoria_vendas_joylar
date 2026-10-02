@@ -19,7 +19,8 @@ import { cn } from '@/lib/utils';
 interface SalesTableProps {
   sales: Sale[];
   /** Subgrupo filtrado: destaca os itens que bateram e abre as vendas mistas automaticamente */
-  highlightSubgrupo?: string;
+  /** null/ausente = sem recorte de subgrupo */
+  highlightSubgrupos?: string[] | null;
 }
 
 type SortField = 'numero_lancamento' | 'data_emissao' | 'perc_desconto' | 'margem_perc' | 'vlr_liquido';
@@ -39,7 +40,7 @@ const getSaleDateTimeUtc = (sale: Sale) => {
 /** Data + hora da venda em ms, para ordenar na mesma ordem em que aparece na tela */
 const getSaleTimestamp = (sale: Sale) => getSaleDateTimeUtc(sale).getTime() || 0;
 
-export function SalesTable({ sales, highlightSubgrupo }: SalesTableProps) {
+export function SalesTable({ sales, highlightSubgrupos }: SalesTableProps) {
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [sortField, setSortField] = useState<SortField>('data_emissao');
@@ -149,16 +150,16 @@ export function SalesTable({ sales, highlightSubgrupo }: SalesTableProps) {
 
   // Com filtro de subgrupo ativo, abre as vendas mistas para mostrar qual item bateu
   useEffect(() => {
-    if (!highlightSubgrupo) return;
+    if (!highlightSubgrupos) return;
     setExpandedSales(new Set(
       sales
         .filter(sale => {
           const items = getItems(sale);
-          return items.length > 1 && items.some(item => item.subgrupo === highlightSubgrupo);
+          return items.length > 1 && items.some(item => !!item.subgrupo && highlightSubgrupos.includes(item.subgrupo));
         })
         .map(sale => sale.id)
     ));
-  }, [highlightSubgrupo, sales]);
+  }, [highlightSubgrupos, sales]);
 
   // Drag to scroll handlers
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -380,7 +381,7 @@ export function SalesTable({ sales, highlightSubgrupo }: SalesTableProps) {
                   {isExpanded && items.map((item, itemIndex) => {
                     const itemHighDiscount = item.perc_desconto > 20;
                     const itemHasAlerta = item.alerta_auditoria && item.alerta_auditoria !== 'OK' && item.alerta_auditoria.toLowerCase().includes('alerta');
-                    const isSubgrupoMatch = !!highlightSubgrupo && item.subgrupo === highlightSubgrupo;
+                    const isSubgrupoMatch = !!highlightSubgrupos && !!item.subgrupo && highlightSubgrupos.includes(item.subgrupo);
 
                     return (
                       <TableRow
@@ -389,7 +390,7 @@ export function SalesTable({ sales, highlightSubgrupo }: SalesTableProps) {
                           'cursor-pointer transition-all duration-200 hover:bg-table-row-hover bg-secondary/30 border-border/20',
                           itemHasAlerta && 'row-alert',
                           // Itens que não bateram no filtro de subgrupo ficam apagados
-                          highlightSubgrupo && !isSubgrupoMatch && 'opacity-40',
+                          highlightSubgrupos && !isSubgrupoMatch && 'opacity-40',
                           isSubgrupoMatch && !itemHasAlerta && 'bg-primary/5'
                         )}
                         onDoubleClick={() => handleRowDoubleClick(sale)}

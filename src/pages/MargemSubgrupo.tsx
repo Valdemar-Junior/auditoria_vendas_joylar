@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { AlertTriangle, CalendarIcon, DollarSign, Loader2, Package, Percent, Wallet } from 'lucide-react';
+import { AlertTriangle, Building2, CalendarIcon, DollarSign, Loader2, Package, Percent, Wallet } from 'lucide-react';
 import { format, startOfDay, startOfMonth, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,8 @@ import { PeriodType } from '@/types/sales';
 import { isSaleInDateRange } from '@/lib/salesDate';
 import { analisarSubgrupos, somarSubgrupos } from '@/lib/subgrupoMetrics';
 import { SubgrupoMultiSelect } from '@/components/audit/SubgrupoMultiSelect';
-import { FilialMultiSelect } from '@/components/audit/FilialMultiSelect';
+import { FiltroMultiSelect } from '@/components/audit/FiltroMultiSelect';
+import { TEXTOS_FILIAIS } from '@/components/audit/textosMultiSelect';
 import { resolverFiliais } from '@/lib/filiais';
 import { faixaMargem, FAIXA_MARGEM_CONFIG, LEGENDA_MARGEM, LIMITES_MARGEM } from '@/lib/margem';
 import { cn } from '@/lib/utils';
@@ -204,10 +205,12 @@ const MargemSubgrupo = () => {
 
                 <div className="space-y-2 sm:w-52">
                   <Label className="text-sm font-medium">Filial</Label>
-                  <FilialMultiSelect
+                  <FiltroMultiSelect
                     opcoes={filiais}
                     selecionadas={filiaisAtivas}
                     onChange={setFiliaisSel}
+                    icone={Building2}
+                    textos={TEXTOS_FILIAIS}
                   />
                 </div>
 
