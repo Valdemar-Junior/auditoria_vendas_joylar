@@ -25,6 +25,20 @@ interface SalesTableProps {
 type SortField = 'numero_lancamento' | 'data_emissao' | 'perc_desconto' | 'margem_perc' | 'vlr_liquido';
 type SortDirection = 'asc' | 'desc';
 
+const getSaleDateTimeUtc = (sale: Sale) => {
+  // hora_emissao vem sem timezone; no seu caso ela está em UTC (3h a mais).
+  // Montamos um Date em UTC e formatamos para America/Sao_Paulo.
+  const datePart = sale.sale_date || sale.data_emissao;
+  const baseDate = typeof datePart === 'string' ? datePart.slice(0, 10) : '';
+  const timePart = sale.hora_emissao?.slice(0, 8) || '00:00:00';
+
+  // Ex: 2025-12-24T15:28:54Z
+  return new Date(`${baseDate}T${timePart}Z`);
+};
+
+/** Data + hora da venda em ms, para ordenar na mesma ordem em que aparece na tela */
+const getSaleTimestamp = (sale: Sale) => getSaleDateTimeUtc(sale).getTime() || 0;
+
 export function SalesTable({ sales, highlightSubgrupo }: SalesTableProps) {
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -57,8 +71,8 @@ export function SalesTable({ sales, highlightSubgrupo }: SalesTableProps) {
           bVal = b.numero_lancamento;
           break;
         case 'data_emissao':
-          aVal = new Date(a.data_emissao).getTime();
-          bVal = new Date(b.data_emissao).getTime();
+          aVal = getSaleTimestamp(a);
+          bVal = getSaleTimestamp(b);
           break;
         case 'perc_desconto':
           aVal = Number(a.perc_desconto) || 0;
@@ -111,17 +125,6 @@ export function SalesTable({ sales, highlightSubgrupo }: SalesTableProps) {
   const formatPercent = (value: number | string | null) => {
     const num = typeof value === 'string' ? parseFloat(value) : (value ?? 0);
     return (isNaN(num) ? 0 : num).toFixed(2);
-  };
-
-  const getSaleDateTimeUtc = (sale: Sale) => {
-    // hora_emissao vem sem timezone; no seu caso ela está em UTC (3h a mais).
-    // Montamos um Date em UTC e formatamos para America/Sao_Paulo.
-    const datePart = sale.sale_date || sale.data_emissao;
-    const baseDate = typeof datePart === 'string' ? datePart.slice(0, 10) : '';
-    const timePart = sale.hora_emissao?.slice(0, 8) || '00:00:00';
-
-    // Ex: 2025-12-24T15:28:54Z
-    return new Date(`${baseDate}T${timePart}Z`);
   };
 
   const getItems = (sale: Sale): SaleItem[] => {
