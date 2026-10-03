@@ -1,5 +1,6 @@
 import { AlertTriangle, Tag, Package, User, Building2, Receipt, ShieldCheck, CreditCard, TrendingUp, DollarSign } from 'lucide-react';
 import { formatInTimeZone } from 'date-fns-tz';
+import { getSaleDateTimeUtc, SALES_TIMEZONE } from '@/lib/salesDate';
 import { ptBR } from 'date-fns/locale';
 import {
   Dialog,
@@ -66,15 +67,15 @@ export function SaleDetailModal({ sale, open, onOpenChange }: SaleDetailModalPro
               </DialogTitle>
               <p className="text-sm text-muted-foreground">
                 {formatInTimeZone(
-                  new Date(`${(sale.sale_date || sale.data_emissao).slice(0, 10)}T${(sale.hora_emissao || '00:00:00').slice(0, 8)}Z`),
-                  'America/Sao_Paulo',
+                  getSaleDateTimeUtc(sale),
+                  SALES_TIMEZONE,
                   "dd 'de' MMMM 'de' yyyy",
                   { locale: ptBR }
                 )}{' '}
                 às{' '}
                 {formatInTimeZone(
-                  new Date(`${(sale.sale_date || sale.data_emissao).slice(0, 10)}T${(sale.hora_emissao || '00:00:00').slice(0, 8)}Z`),
-                  'America/Sao_Paulo',
+                  getSaleDateTimeUtc(sale),
+                  SALES_TIMEZONE,
                   'HH:mm:ss',
                   { locale: ptBR }
                 )}

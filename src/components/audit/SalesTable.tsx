@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { ChevronDown, ChevronUp, ChevronRight, Package } from 'lucide-react';
 import { formatInTimeZone } from 'date-fns-tz';
+import { getSaleDateTimeUtc, SALES_TIMEZONE } from '@/lib/salesDate';
 import { ptBR } from 'date-fns/locale';
 import {
   Table,
@@ -25,17 +26,6 @@ interface SalesTableProps {
 
 type SortField = 'numero_lancamento' | 'data_emissao' | 'perc_desconto' | 'margem_perc' | 'vlr_liquido';
 type SortDirection = 'asc' | 'desc';
-
-const getSaleDateTimeUtc = (sale: Sale) => {
-  // hora_emissao vem sem timezone; no seu caso ela está em UTC (3h a mais).
-  // Montamos um Date em UTC e formatamos para America/Sao_Paulo.
-  const datePart = sale.sale_date || sale.data_emissao;
-  const baseDate = typeof datePart === 'string' ? datePart.slice(0, 10) : '';
-  const timePart = sale.hora_emissao?.slice(0, 8) || '00:00:00';
-
-  // Ex: 2025-12-24T15:28:54Z
-  return new Date(`${baseDate}T${timePart}Z`);
-};
 
 /** Data + hora da venda em ms, para ordenar na mesma ordem em que aparece na tela */
 const getSaleTimestamp = (sale: Sale) => getSaleDateTimeUtc(sale).getTime() || 0;
@@ -306,10 +296,10 @@ export function SalesTable({ sales, highlightSubgrupos }: SalesTableProps) {
                     <TableCell className="whitespace-nowrap">
                       <div className="space-y-0.5">
                         <div className="font-medium">
-                          {formatInTimeZone(getSaleDateTimeUtc(sale), 'America/Sao_Paulo', 'dd/MM/yyyy', { locale: ptBR })}
+                          {formatInTimeZone(getSaleDateTimeUtc(sale), SALES_TIMEZONE, 'dd/MM/yyyy', { locale: ptBR })}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {formatInTimeZone(getSaleDateTimeUtc(sale), 'America/Sao_Paulo', 'HH:mm:ss', { locale: ptBR })}
+                          {formatInTimeZone(getSaleDateTimeUtc(sale), SALES_TIMEZONE, 'HH:mm:ss', { locale: ptBR })}
                         </div>
                       </div>
                     </TableCell>
